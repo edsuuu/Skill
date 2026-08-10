@@ -69,6 +69,22 @@ Nulo → `is_null()`; array vazio → `empty()`/`count()`; corrente de `||` na
 mesma variável → `in_array(..., true)` (TS: `.includes()`); string vazia →
 normaliza com `mb_*` e compara `=== ''`.
 
+### [consumo-de-api.md](consumo-de-api.md)
+UI → Service (só se existe regra; camada de passagem proibida) → Client (um
+por integração, `Http::` decora retry/timeout); TODA chamada loga headers +
+body enviado + resposta (canal da integração, secret mascarado); resposta é
+array direto — DTO só quando o objeto tem muitos dados; interface/Strategy só
+com 2º provedor real ou mock de teste; injeção por construtor, nunca `new` na
+mão; não reimplementar padrão que o Laravel já é (container, middleware,
+events, jobs, drivers).
+
+### [criacao-de-api.md](criacao-de-api.md)
+Rota → middleware fail-closed → FormRequest (validação na fronteira, nunca
+`input()` cru no controller) → controller magro → service → **retorno sempre
+via Resource** (nunca model cru/array na mão) → exception com `render()`
+próprio (status code mora nela); auth específica e versionamento são decisão
+por projeto.
+
 ### [banco-e-logs.md](banco-e-logs.md)
 Escrita no banco em `try/catch`; todo `catch` loga (qualquer linguagem, nunca
 vazio); `Log::channel(...)` sempre (facade default proibida), mensagem fixa
