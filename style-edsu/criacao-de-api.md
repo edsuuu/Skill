@@ -16,22 +16,59 @@ Todo endpoint que recebe dado tem seu `*Request` com `rules()`. O controller
 já recebe validado (`$request->validated()`); `$request->input()` cru dentro
 de controller é proibido.
 
-## Controller magro
+## Controller magro, e UM por recurso
 
 Recebe o validado, chama o service, devolve o Resource. Sem regra de negócio,
 sem query, sem `response()->json([...], 4xx)` espalhado.
 
-```php
-final class StoreVideoController
-{
-    public function __invoke(StoreVideoRequest $request, VideoImportService $service): VideoResource
-    {
-        $video = $service->import($request->validated());
+**Um controller por recurso**, com os métodos dele — `index`, `show`, `store`,
+`update`, `destroy` e o que mais aquele recurso tiver. Um arquivo por ação
+espalha sessenta arquivos de uma função só, e aí a maior parte de cada arquivo
+é `<?php`, namespace e import: cabeçalho demais para código de menos.
 
-        return new VideoResource($video);
+`__invoke` fica para o recurso que tem **uma ação só de verdade** (um webhook,
+um `/config`, um `/me`) — não para fatiar um CRUD.
+
+```php
+final class VideoController
+{
+    public function index(VideoService $service): AnonymousResourceCollection
+    {
+        return VideoResource::collection($service->recent());
+    }
+
+    public function store(StoreVideoRequest $request, VideoImportService $service): VideoResource
+    {
+        return new VideoResource($service->import($request->validated()));
+    }
+
+    public function destroy(Video $video, VideoService $service): Response
+    {
+        $service->remove($video);
+
+        return response()->noContent();
     }
 }
 ```
+
+## Rota agrupada por prefixo
+
+Caminho repetido vira `Route::prefix(...)`, e nome repetido vira
+`Route::name(...)`. O arquivo de rotas passa a mostrar a forma da API em vez de
+repetir `/servers/{server}/` vinte vezes.
+
+```php
+Route::name('api.')->middleware('auth:sanctum')->group(function (): void {
+    Route::prefix('videos')->name('videos.')->group(function (): void {
+        Route::get('/', [VideoController::class, 'index'])->name('index');
+        Route::post('/', [VideoController::class, 'store'])->name('store');
+        Route::delete('/{video}', [VideoController::class, 'destroy'])->name('destroy');
+    });
+});
+```
+
+Sub-recurso que pende de outro no caminho mas é recurso próprio (`/videos/{video}/comments`)
+usa o prefixo de caminho do pai e o **nome dele mesmo** (`comments.index`), não o do pai.
 
 ## Resource — o retorno da controller é SEMPRE um Resource
 
